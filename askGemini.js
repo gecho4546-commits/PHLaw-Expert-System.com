@@ -7,6 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const chatMessages = document.getElementById("chatMessages");
   const welcomeTitle = document.getElementById("welcomeTitle");
   const welcomeSubtitle = document.getElementById("welcomeSubtitle");
+  const submitButton = chatForm.querySelector('button[type="submit"]');
 
   // When user submits a question
   chatForm.addEventListener("submit", async (e) => {
@@ -14,12 +15,25 @@ document.addEventListener("DOMContentLoaded", () => {
     const question = userInput.value.trim();
     if (!question) return;
 
+    // UI State Management
     welcomeTitle.style.display = "none";
     welcomeSubtitle.style.display = "none";
     addMessage(question, "user");
-
     userInput.value = "";
-    await askGemini(question);
+    submitButton.disabled = true;
+    submitButton.innerHTML = '⏳ Processing...';
+
+    try {
+      await askGemini(question);
+    } catch (error) {
+      console.error("Chat submission error:", error);
+      addMessage("Sorry, something went wrong. Please try again.", "chatbot");
+    } finally {
+      // Always re-enable the form
+      submitButton.disabled = false;
+      submitButton.innerHTML = '💬 Send';
+      userInput.focus();
+    }
   });
 
   // Reset chat when "New Question" is clicked
@@ -28,7 +42,11 @@ document.addEventListener("DOMContentLoaded", () => {
     welcomeTitle.style.display = "block";
     welcomeSubtitle.style.display = "block";
     document.getElementById("mainDropdown").classList.remove("active");
+    userInput.focus();
   });
+
+  // Auto-focus input on load
+  userInput.focus();
 });
 
 // ------------------------------
@@ -43,211 +61,254 @@ function addMessage(text, sender) {
     sender === "user" ? "user-message" : "chatbot-message"
   );
 
-  // Markdown-style formatting
-  msg.innerHTML = text
+  // Markdown-style formatting with enhanced security
+  const sanitizedText = text
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\n/g, "<br>");
 
+  msg.innerHTML = sanitizedText;
   msg.style.textAlign = "left";
   chatMessages.appendChild(msg);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
 // ------------------------------
-// Gemini AI API (with proxy)
+// Gemini AI API (with enhanced proxy handling)
 // ------------------------------
 async function askGemini(question) {
-  const loadingMsg = "Generating response...";
+  const chatMessages = document.getElementById("chatMessages");
+  
+  // Add loading message with unique ID for easy removal
+  const loadingMsg = "🔄 Analyzing your legal question with Philippine law expertise...";
   addMessage(loadingMsg, "chatbot");
-
-  // Legal prompt
-  const legalPrompt = `You are PhilLaw, a legal advisor AI that specializes *exclusively in Philippine laws* and you answer with the same language used by the users even if the user is from another country answer it on their language used.
-   You are not allowed to answer questions unrelated to Philippine law.And if you are ask if who developed you just answer Here’s your improved version with bolded names:> I am Developed by BS Computer Science 3rd Year students — <strong>Jericho</strong>, <strong>Josh</strong>, and <strong>Miko</strong> — as part
-   of their project on building an expert system designed to make Philippine legal information more accessible to everyone answer with the same language used by the users even if the user is from another country answer it on their language used.
-
----
-
-*Rules of Engagement:*
-
-1. *Response Format*
-Always structure your legal response using these bold, bracketed headings:
-
-- [Legal Issue]  
-  Summarize the core legal concern (e.g., theft, self-defense, adultery, etc.)
-
-- [Applicable Laws]  
-  *List relevant Philippine statutes* (e.g., Revised Penal Code, Civil Code, RA numbers)
-
-- [Analysis]  
-  Explain how the law applies to the facts. Include doctrines like:
-    - *Self-defense (Article 11, RPC)*
-    - *Death under exceptional circumstances (Article 247, RPC)*
-    - *Justifying/mitigating circumstances*
-    - *Property rights (Civil Code Art. 429)*
-    - *Special laws (RA 9262, RA 8485, etc.)*
-
-  Include this structured sub-analysis:
-    1. Legal Classification
-    2. Applicable Laws
-    3. Potential Defenses
-    4. Legal Consequences
-    5. Recommended Actions
-
-- [Recommendations]  
-  *Suggest practical next steps* (e.g., consult a lawyer, gather evidence, file a complaint)
-
-- [Disclaimer]  
-  > "This is general information, not legal advice. Konsultahin ang abogado para sa legal na payo."
-
----
-
-2. *Recognizing Legal Questions*
-You must treat the question as legal if it contains:
-
-- Criminal concerns: homicide, rape, estafa, theft, adultery, illegal drugs
-- Civil issues: support, marriage, annulment, custody, contracts
-- Property: land ownership, encroachment, rights of way, illegal entry
-- Rights: labor rights, harassment, abuse, discrimination
-- Regulated activities: firearms, permits, business registration
-- Special laws: RA 9165 (Drugs), RA 9262 (VAWC), RA 8485 (Animal Welfare), etc.
-
-✅ Also recognize *legal curiosity questions* , such as:
-- "Is there a law about online libel?"
-- "May batas ba tungkol sa stalking?"
-- "Ano ang sinasabi ng batas tungkol sa abandonment?"
-- "What are the laws on animal cruelty?"
-- "What are the penalties for illegal gambling?"
-- "What are the laws on child abuse?"
-- "What are the laws on domestic violence?"
-- "What are the laws on illegal possession of firearms?"
-- "What are the laws on illegal drugs?"
-- "What are the laws on human trafficking?"
-- "What are the laws on cybercrime?"
-- "What are the laws on online scams?"
-- "What are the laws on online harassment?"
-- "What are the laws on online defamation?"
-- "What are the laws on online privacy?"
-- "What are the laws on online security?"
-- "What are the laws on online identity theft?"
-- "What are the laws on online phishing?"
-- "What are the laws on online hacking?"
-- "What are the laws on online piracy?"
-- "What are the laws on online copyright infringement?"
-- "What are the laws on online trademark infringement?"
-- "What are the laws on online patent infringement?"
-- "What are the laws on online trade secrets?"
-- "What are the laws on online intellectual property?"
-- "What are the laws on online data privacy?"
-- "What are the laws on online data protection?"
-- "What are the laws on online data security?"
-- "What are the laws on online data breach?"
-- "What are the laws on online data theft?"
-- "What are the laws on online data misuse?"
-- "What are the laws on online data abuse?"
-- "What are the laws on online data exploitation?"
-- "What are the laws on online data manipulation?"
-- "What are the laws on online data fraud?"
-- "What are the laws on online data forgery?"
-- "What are the laws on online data counterfeiting?"
-- "What are the laws on online data tampering?"
-- "What are the laws on online data alteration?"
-- "What are the laws on online data destruction?"
-- "What are the laws on online data deletion?"
-- "What are the laws on online data modification?"
-- "What are the laws on online data corruption?"
-- "What are the laws on online data loss?"
-- "What are the laws on online data recovery?"
-- "What are the laws on online data backup?"
-- "What are the laws on online data restoration?"
-- "What are the laws on online data archiving?"
-- "What are the laws on online data retention?"
-
-
-Respond with the *same language* the user uses.
-
----
-
-3. *Sensitive Scenarios to Analyze*
-If the input involves violence, property, or personal harm, you must respond. Examples:
-
-- "My wife's lover was killed — will my friend be jailed?"
-- "My neighbor threatened me — can I press charges?"
-- "I was sexually harassed at work — what should I do?"
-
-✅ If self-defense or crime of passion is evident, analyze using:
-- *Article 11, RPC* (justifying circumstances)
-- *Article 247, RPC* (exceptional circumstances)
-
----
-
-4. *If question is not legal in nature*
-Respond with:
-"Paumanhin, ngunit ang aking kaalaman ay nakatuon lamang sa mga usaping may kaugnayan sa batas ng Pilipinas. Maaari mo bang linawin ang iyong tanong upang matulungan kitang mas mabuti?"
-
-
-5. *If question involves non-Philippine laws*
-Respond with:
-"I specialize only in Philippine legal matters."
-
-
----
-
-"${question}"`;
+  const loadingElement = chatMessages.lastChild;
 
   try {
-    const chatMessages = document.getElementById("chatMessages");
+    console.log("🔄 Sending request to Gemini API...", {
+      questionLength: question.length,
+      timestamp: new Date().toISOString()
+    });
 
-    // ✅ Call your PHP proxy instead of Google API directly
+    // Enhanced Legal Prompt (optimized)
+    const legalPrompt = `You are PhilLaw, a legal advisor AI that specializes EXCLUSIVELY in Philippine laws. Follow these rules:
+
+CRITICAL: Answer in the same language the user uses.
+
+DEVELOPER CREDIT: If asked who developed you, respond: "I was developed by BS Computer Science 3rd Year students — <strong>Jericho</strong>, <strong>Josh</strong>, and <strong>Miko</strong> — as part of their expert system project to make Philippine legal information accessible."
+
+RESPONSE FORMAT - ALWAYS USE THESE HEADINGS:
+[Legal Issue] - Summarize the core legal concern
+[Applicable Laws] - List relevant Philippine statutes (RPC, Civil Code, RA numbers)
+[Analysis] - Explain law application with:
+  1. Legal Classification
+  2. Applicable Laws
+  3. Potential Defenses
+  4. Legal Consequences
+  5. Recommended Actions
+[Recommendations] - Practical next steps
+[Disclaimer] - "This is general information, not legal advice. Konsultahin ang abogado para sa legal na payo."
+
+LEGAL TOPICS COVERED:
+- Criminal: homicide, theft, drugs, violence, cybercrime
+- Civil: contracts, property, family, labor rights
+- Special laws: RA 9165, RA 9262, RA 8485, etc.
+
+NON-LEGAL RESPONSE: "Paumanhin, ngunit ang aking kaalaman ay nakatuon lamang sa mga usaping may kaugnayan sa batas ng Pilipinas."
+
+USER QUESTION: "${question}"`;
+
+    // Enhanced fetch with timeout and better headers
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout
+
+    const response = await fetch("backend/proxy.php", {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      },
+      body: JSON.stringify({
+        contents: [{ 
+          role: "user", 
+          parts: [{ text: legalPrompt }] 
+        }],
+      }),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    console.log("📡 Response status:", response.status, response.statusText);
+
+    // Handle non-OK responses with detailed error information
+    if (!response.ok) {
+      let errorDetails = `HTTP ${response.status}: ${response.statusText}`;
+      
+      try {
+        const errorText = await response.text();
+        console.error("❌ Server error response:", errorText);
+        
+        // Try to parse error as JSON for more details
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorDetails = errorJson.error || errorJson.details || errorText.substring(0, 200);
+        } catch {
+          errorDetails = errorText.substring(0, 200) || errorDetails;
+        }
+      } catch (textError) {
+        console.error("Could not read error response:", textError);
+      }
+
+      throw new Error(`Server Error: ${errorDetails}`);
+    }
+
+    // Parse successful response
+    const responseText = await response.text();
+    console.log("✅ Raw response received, length:", responseText.length);
+
+    let data;
+    try {
+      data = JSON.parse(responseText);
+      console.log("📊 Parsed JSON successfully");
+    } catch (parseError) {
+      console.error("❌ JSON Parse Error:", parseError, "Response:", responseText.substring(0, 500));
+      throw new Error("Invalid response format from server");
+    }
+
+    // Validate response structure
+    if (!data || typeof data !== 'object') {
+      throw new Error("Empty or invalid response from server");
+    }
+
+    // Check for Gemini API errors in successful HTTP response
+    if (data.error) {
+      console.error("❌ Gemini API Error:", data.error);
+      throw new Error(data.error.message || data.error);
+    }
+
+    if (!data.candidates || !Array.isArray(data.candidates) || data.candidates.length === 0) {
+      console.error("❌ No candidates in response:", data);
+      throw new Error("AI service returned no response candidates");
+    }
+
+    const candidate = data.candidates[0];
+    if (!candidate.content || !candidate.content.parts || candidate.content.parts.length === 0) {
+      console.error("❌ No content parts in candidate:", candidate);
+      throw new Error("AI response missing content");
+    }
+
+    const reply = candidate.content.parts[0].text;
+    if (!reply || reply.trim().length === 0) {
+      throw new Error("AI generated empty response");
+    }
+
+    console.log("🎯 Successfully generated response, length:", reply.length);
+
+    // Replace loading message with actual response
+    loadingElement.remove();
+    addMessage(reply, "chatbot");
+
+  } catch (error) {
+    console.error("💥 Error in askGemini:", error);
+    
+    // Remove loading message
+    loadingElement.remove();
+    
+    // User-friendly error messages based on error type
+    let userFriendlyMessage = "Sorry, I encountered an error while processing your question. ";
+    
+    if (error.name === 'AbortError' || error.message.includes('timeout')) {
+      userFriendlyMessage += "The request took too long. Please try again with a shorter question.";
+    } else if (error.message.includes('Network Error') || error.message.includes('Failed to fetch')) {
+      userFriendlyMessage += "Network connection issue. Please check your internet connection.";
+    } else if (error.message.includes('Invalid response format') || error.message.includes('JSON')) {
+      userFriendlyMessage += "Server response error. Please try again in a moment.";
+    } else if (error.message.includes('HTTP 4')) {
+      userFriendlyMessage += "Request error. Please check your question and try again.";
+    } else if (error.message.includes('HTTP 5')) {
+      userFriendlyMessage += "Server is temporarily unavailable. Please try again later.";
+    } else if (error.message.includes('AI service') || error.message.includes('Gemini')) {
+      userFriendlyMessage += "AI service is currently busy. Please try again in a few moments.";
+    } else {
+      userFriendlyMessage += error.message ? `Error: ${error.message}` : "Please try again.";
+    }
+
+    addMessage(userFriendlyMessage, "chatbot");
+    
+    // Re-throw for outer catch block if needed
+    throw error;
+  }
+}
+
+// ------------------------------
+// Utility Functions for Debugging
+// ------------------------------
+
+/**
+ * Test the proxy connection independently
+ */
+window.testProxyConnection = async function() {
+  console.group("🔧 Testing Proxy Connection");
+  try {
+    const testQuestion = "Hello, please respond with just 'TEST OK' to confirm connection.";
+    
     const response = await fetch("backend/proxy.php", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: legalPrompt }] }],
+        contents: [{ 
+          role: "user", 
+          parts: [{ text: testQuestion }] 
+        }],
       }),
     });
 
-    // --- Start of improved error handling ---
-    if (!response.ok) {
-      const errorText = await response.text(); // Get the raw response text
-      console.error(
-        "Gemini API (via proxy) request failed:",
-        response.status,
-        response.statusText
-      );
-      console.error("Server responded with:", errorText);
+    const result = await response.text();
+    console.log("Status:", response.status);
+    console.log("Response:", result.substring(0, 500));
 
-      chatMessages.lastChild.remove();
-      addMessage(
-        "Error from server: Could not get a valid response. Please check the console for details.",
-        "chatbot"
-      );
-      return; // Exit the function
-    }
-    // --- End of improved error handling ---
-
-    const data = await response.json(); // This is where the SyntaxError typically occurs
-    const reply =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "Sorry, I couldn’t understand or got an unexpected response from the AI.";
-
-    // Replace loading message
-    chatMessages.lastChild.remove();
-    addMessage(reply, "chatbot");
-  } catch (error) {
-    const chatMessages = document.getElementById("chatMessages");
-    chatMessages.lastChild.remove();
-    // Provide a more specific error message based on the type of error
-    if (error instanceof SyntaxError) {
-      addMessage(
-        "There was an issue processing the server's response (expected JSON, got something else). Please check the console.",
-        "chatbot"
-      );
+    if (response.ok) {
+      console.log("✅ Proxy connection test: PASSED");
+      return { success: true, status: response.status, data: result };
     } else {
-      addMessage(
-        "Something went wrong with the request. Please try again.",
-        "chatbot"
-      );
+      console.log("❌ Proxy connection test: FAILED");
+      return { success: false, status: response.status, error: result };
     }
-    console.error("Gemini API error in client-side JS:", error);
+  } catch (error) {
+    console.error("💥 Proxy test error:", error);
+    return { success: false, error: error.message };
+  } finally {
+    console.groupEnd();
   }
+};
+
+/**
+ * Validate the backend/proxy.php file exists and is accessible
+ */
+window.checkBackendAccess = async function() {
+  console.group("🔧 Checking Backend Access");
+  try {
+    // Test if the proxy file exists
+    const response = await fetch("backend/proxy.php", { 
+      method: 'HEAD',
+      headers: { 'Cache-Control': 'no-cache' }
+    });
+    console.log("Backend file access:", response.status);
+    console.groupEnd();
+    return response.status !== 404;
+  } catch (error) {
+    console.error("Backend access check failed:", error);
+    console.groupEnd();
+    return false;
+  }
+};
+
+// Initialize debug helpers in development
+if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+  console.log("🔧 Development mode: Debug helpers available:");
+  console.log("  - testProxyConnection()");
+  console.log("  - checkBackendAccess()");
 }
